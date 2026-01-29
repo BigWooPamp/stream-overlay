@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Time Only Overlay</title>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #timebox {
+        position: absolute;
+        top: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 22px;
+        font-weight: 500;
+        color: white;
+        text-shadow: 0px 0px 6px rgba(0,0,0,0.7);
+        pointer-events: none;
+        padding-top: 5px;
+    }
+</style>
+</head>
+
+<body>
+<div id="timebox">Loading…</div>
+
+<script>
+// ------------------------------
+// TIME (12-hour with seconds)
+// ------------------------------
+function formatTime() {
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
+function updateTime() {
+    document.getElementById("timebox").textContent = formatTime();
+}
+
+setInterval(updateTime, 1000);
+updateTime();
+</script>
+
+</body>
+</html>
