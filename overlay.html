@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Livestream Overlay</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: Arial, sans-serif;
+    color: white;
+    font-size: 28px;
+    font-weight: 500;
+  }
+  #container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="time"></div>
+  <div id="temp"></div>
+  <div id="location"></div>
+</div>
+
+<script>
+// -------------------- TIME --------------------
+function updateTime() {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+  document.getElementById("time").innerText = timeString;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// -------------------- WEATHER --------------------
+const WEATHER_API_KEY = "YOUR_OPENWEATHERMAP_API_KEY";
+
+function updateWeather(lat, lon) {
+  fetch(
+    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=imperial&appid=${WEATHER_API_KEY}`
+  )
+    .then(res => res.json())
+    .then(data => {
+      const temp = Math.round(data.main.temp);
+      document.getElementById("temp").innerText = `${temp}°F`;
+    })
+    .catch(err => console.log(err));
+}
+
+// -------------------- LOCATION (Neighborhood + City) --------------------
+function updateLocation(lat, lon) {
+  fetch(
+    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+  )
+    .then(res => res.json())
+    .then(data => {
+      const address = data.address;
+      const neighborhood =
+        address.neighbourhood || address.suburb || address.hamlet || "";
+      const city =
+        address.city || address.town || address.village || address.county || "";
+      document.getElementById("location").innerText =
+        `${neighborhood}, ${city}`;
+    })
+    .catch(err => console.log(err));
+}
+
+// -------------------- GET GPS --------------------
+navigator.geolocation.getCurrentPosition(
+  pos => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    updateWeather(lat, lon);
+    updateLocation(lat, lon);
+
+    // Refresh weather + location every 10 minutes
+    setInterval(() => {
+      updateWeather(lat, lon);
+      updateLocation(lat, lon);
+    }, 600000);
+  },
+  err => {
+    document.getElementById("location").innerText = "Location unavailable";
+  }
+);
+</script>
+</body>
+</html>
