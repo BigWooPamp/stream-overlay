@@ -1,99 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Livestream Overlay</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stream Overlay</title>
+
 <style>
-  body {
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    font-family: Arial, sans-serif;
-    color: white;
-    font-size: 28px;
-    font-weight: 500;
-  }
-  #container {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    line-height: 1.4;
-  }
+    body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #footer {
+        position: fixed;
+        bottom: 20px;
+        width: 100%;
+        text-align: center;
+        font-size: 22px;
+        font-weight: 500;
+        color: white;
+        text-shadow: 0px 0px 6px rgba(0,0,0,0.7);
+        pointer-events: none;
+    }
 </style>
 </head>
+
 <body>
-<div id="container">
-  <div id="time"></div>
-  <div id="temp"></div>
-  <div id="location"></div>
-</div>
+<div id="footer">Loading…</div>
 
 <script>
-// -------------------- TIME --------------------
-function updateTime() {
-  const now = new Date();
-  const timeString = now.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  });
-  document.getElementById("time").innerText = timeString;
-}
-setInterval(updateTime, 1000);
-updateTime();
+// ------------------------------
+// CONFIG
+// ------------------------------
+const WEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037"; // <-- replace this only
 
-// -------------------- WEATHER --------------------
-const WEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037";
-
-function updateWeather(lat, lon) {
-  fetch(
-    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=imperial&appid=${WEATHER_API_KEY}`
-  )
-    .then(res => res.json())
-    .then(data => {
-      const temp = Math.round(data.main.temp);
-      document.getElementById("temp").innerText = `${temp}°F`;
-    })
-    .catch(err => console.log(err));
+// ------------------------------
+// TIME (with seconds)
+// ------------------------------
+function formatTime() {
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
-// -------------------- LOCATION (Neighborhood + City) --------------------
-function updateLocation(lat, lon) {
-  fetch(
-    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
-  )
-    .then(res => res.json())
-    .then(data => {
-      const address = data.address;
-      const neighborhood =
-        address.neighbourhood || address.suburb || address.hamlet || "";
-      const city =
-        address.city || address.town || address.village || address.county || "";
-      document.getElementById("location").innerText =
-        `${neighborhood}, ${city}`;
-    })
-    .catch(err => console.log(err));
+// ------------------------------
+// IP-BASED LOCATION + WEATHER
+// ------------------------------
+async function fetchIPLocation() {
+    try {
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+        return {
+            city: data.city,
+            region: data.region,
+            lat: data.latitude,
+            lon: data.longitude
+        };
+    } catch (e) {
+        return null;
+    }
 }
 
-// -------------------- GET GPS --------------------
-navigator.geolocation.getCurrentPosition(
-  pos => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
+async function fetchWeather(lat, lon) {
+    try {
+        const url =
+            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=imperial`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const tempF = Math.round(data.main.temp);
+        const tempC = Math.round((tempF - 32) * 5/9);
+        return `${tempF}°F / ${tempC}°C`;
+    } catch (e) {
+        return null;
+    }
+}
 
-    updateWeather(lat, lon);
-    updateLocation(lat, lon);
+// ------------------------------
+// UPDATE FOOTER
+// ------------------------------
+let locationData = null;
+let weatherText = null;
 
-    // Refresh weather + location every 10 minutes
-    setInterval(() => {
-      updateWeather(lat, lon);
-      updateLocation(lat, lon);
-    }, 600000);
-  },
-  err => {
-    document.getElementById("location").innerText = "Location unavailable";
-  }
-);
+async function initOverlay() {
+    locationData = await fetchIPLocation();
+
+    if (locationData) {
+        weatherText = await fetchWeather(locationData.lat, locationData.lon);
+    }
+}
+
+function updateFooter() {
+    const timeText = formatTime();
+
+    let footer = timeText;
+
+    if (weatherText) {
+        footer += ` | ${weatherText}`;
+    }
+
+    if (locationData) {
+        footer += ` | ${locationData.city}, ${locationData.region}`;
+    }
+
+    document.getElementById("footer").textContent = footer;
+}
+
+initOverlay();
+setInterval(updateFooter, 1000);
 </script>
 </body>
 </html>
