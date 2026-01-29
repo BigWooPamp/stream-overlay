@@ -71,7 +71,47 @@ async function fetchIPLocation() {
 
 async function fetchWeather(lat, lon) {
     try {
-        const url =
-            `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=imperial`;
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_API_KEY}&units=imperial`;
         const res = await fetch(url);
-        const data = await
+        const data = await res.json();
+        const tempF = Math.round(data.main.temp);
+        const tempC = Math.round((tempF - 32) * 5/9);
+        return `${tempF}°F / ${tempC}°C`;
+    } catch (e) {
+        return null;
+    }
+}
+
+// ------------------------------
+// UPDATE FOOTER
+// ------------------------------
+let locationData = null;
+let weatherText = null;
+
+async function initOverlay() {
+    locationData = await fetchIPLocation();
+    if (locationData) {
+        weatherText = await fetchWeather(locationData.lat, locationData.lon);
+    }
+}
+
+function updateFooter() {
+    const timeText = formatTime();
+
+    // Build footer with non-breaking spaces
+    let footer = timeText;
+
+    if (weatherText && locationData) {
+        footer += `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${weatherText}`;
+        footer += `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${locationData.city}, ${locationData.region}`;
+    }
+
+    document.getElementById("footer").innerHTML = footer;
+}
+
+initOverlay();
+setInterval(updateFooter, 1000);
+</script>
+
+</body>
+</html>
