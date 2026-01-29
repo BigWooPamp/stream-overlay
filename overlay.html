@@ -36,7 +36,7 @@
 // ------------------------------
 // CONFIG
 // ------------------------------
-const WEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037"; // <-- replace this only
+const WEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037";
 
 // ------------------------------
 // TIME (with seconds)
@@ -103,11 +103,11 @@ function updateFooter() {
     let footer = timeText;
 
     if (weatherText) {
-        footer += `   |   ${weatherText}   `;
+        footer += `     |     ${weatherText}     `;
     }
 
     if (locationData) {
-        footer += `   |   ${locationData.city}, ${locationData.region}`;
+        footer += `     |     ${locationData.city}, ${locationData.region}`;
     }
 
     document.getElementById("footer").textContent = footer;
