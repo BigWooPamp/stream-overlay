@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GPS Time / Weather / Location Overlay</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 500;
+      text-shadow: 0 0 6px rgba(0,0,0,0.9);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">--:-- -- | --°F / --°C | Locating...</div>
+
+  <script>
+    // ====== CONFIG ======
+    const OPENWEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037";
+    const WEATHER_UNITS = "imperial"; // Fahrenheit base; Celsius derived
+    const LOCATION_REFRESH_MS = 30000; // 30 seconds
+    const TIME_REFRESH_MS = 1000; // 1 second
+    const WEATHER_REFRESH_MS = 60000; // 60 seconds
+
+    let lastCoords = null;
+    let lastWeather = null;
+    let lastPlace = null;
+
+    const overlayEl = document.getElementById("overlay");
+
+    // ====== TIME ======
+    function formatTime(date) {
+      let hours = date.getHours();
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+      return `${hours}:${minutes} ${ampm}`;
+    }
+
+    function startClock() {
+      function tick() {
+        updateOverlayText();
+        setTimeout(tick, TIME_REFRESH_MS);
+      }
+      tick();
+    }
+
+    // ====== GEOLOCATION ======
+    function startLocationTracking() {
+      if (!navigator.geolocation) {
+        lastPlace = "Location Unavailable";
+        updateOverlayText();
+        return;
+      }
+
+      function success(pos) {
+        const { latitude, longitude } = pos.coords;
+        const coordsChanged =
+          !lastCoords ||
+          Math.abs(lastCoords.lat - latitude) > 0.0005 ||
+          Math.abs(lastCoords.lon - longitude) > 0.0005;
+
+        lastCoords = { lat: latitude, lon: longitude };
+
+        if (coordsChanged) {
+          reverseGeocode(latitude, longitude);
+          fetchWeather(latitude, longitude);
+        }
+      }
+
+      function error(err) {
+        lastPlace = "Location Unavailable";
+        updateOverlayText();
+      }
+
+      navigator.geolocation.getCurrentPosition(success, error, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000
+      });
+
+      navigator.geolocation.watchPosition(success, error, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000
+      });
+
+      setInterval(() => {
+        navigator.geolocation.getCurrentPosition(success, error, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5000
+        });
+      }, LOCATION_REFRESH_MS);
+    }
+
+    // ====== REVERSE GEOCODING (Smart Neighborhood Logic) ======
+    async function reverseGeocode(lat, lon) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const addr = data.address || {};
+
+        const candidates = [
+          addr.neighbourhood,
+          addr.suburb,
+          addr.city_district,
+          addr.borough,
+          addr.town,
+          addr.city,
+          addr.county,
+          addr.state
+        ].filter(Boolean);
+
+        let label = candidates[0] || "Unknown Location";
+
+        // Title Case
+        label = label
+          .toLowerCase()
+          .split(" ")
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+
+        lastPlace = label;
+        updateOverlayText();
+      } catch (e) {
+        if (!lastPlace) lastPlace = "Unknown Location";
+        updateOverlayText();
+      }
+    }
+
+    // ====== WEATHER ======
+    async function fetchWeather(lat, lon) {
+      try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=${WEATHER_UNITS}&appid=${OPENWEATHER_API_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data?.main?.temp !== undefined) {
+          const tempF = Math.round(data.main.temp);
+          const tempC = Math.round((tempF - 32) * 5 / 9);
+          lastWeather = { tempF, tempC };
+          updateOverlayText();
+        }
+      } catch (e) {}
+    }
+
+    function startWeatherRefresh() {
+      setInterval(() => {
+        if (lastCoords) {
+          fetchWeather(lastCoords.lat, lastCoords.lon);
+        }
+      }, WEATHER_REFRESH_MS);
+    }
+
+    // ====== RENDER ======
+    function updateOverlayText() {
+      const now = new Date();
+      const timeStr = formatTime(now);
+
+      let tempStr = "--°F / --°C";
+      if (lastWeather) {
+        tempStr = `${lastWeather.tempF}°F / ${lastWeather.tempC}°C`;
+      }
+
+      let placeStr = lastPlace || "Locating...";
+      overlayEl.textContent = `${timeStr} | ${tempStr} | ${placeStr}`;
+    }
+
+    // ====== INIT ======
+    startClock();
+    startLocationTracking();
+    startWeatherRefresh();
+  </script>
+</body>
+</html>
