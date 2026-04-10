@@ -23,6 +23,8 @@
       font-weight: 500;
       text-shadow: 0 0 6px rgba(0,0,0,0.9);
       white-space: nowrap;
+      opacity: 1;
+      transition: opacity 0.35s ease-in-out; /* MEDIUM FADE */
     }
   </style>
 </head>
@@ -32,14 +34,15 @@
   <script>
     // ====== CONFIG ======
     const OPENWEATHER_API_KEY = "8ea16d3d68ee842cdbba6357baca4037";
-    const WEATHER_UNITS = "imperial"; // Fahrenheit base; Celsius derived
-    const LOCATION_REFRESH_MS = 30000; // 30 seconds
-    const TIME_REFRESH_MS = 1000; // 1 second
-    const WEATHER_REFRESH_MS = 60000; // 60 seconds
+    const WEATHER_UNITS = "imperial";
+    const LOCATION_REFRESH_MS = 30000;
+    const TIME_REFRESH_MS = 1000;
+    const WEATHER_REFRESH_MS = 60000;
 
     let lastCoords = null;
     let lastWeather = null;
     let lastPlace = null;
+    let lastRenderedText = "";
 
     const overlayEl = document.getElementById("overlay");
 
@@ -110,7 +113,7 @@
       }, LOCATION_REFRESH_MS);
     }
 
-    // ====== REVERSE GEOCODING (Smart Neighborhood Logic) ======
+    // ====== REVERSE GEOCODING ======
     async function reverseGeocode(lat, lon) {
       try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
@@ -132,19 +135,32 @@
 
         let label = candidates[0] || "Unknown Location";
 
-        // Title Case
         label = label
           .toLowerCase()
           .split(" ")
           .map(w => w.charAt(0).toUpperCase() + w.slice(1))
           .join(" ");
 
-        lastPlace = label;
-        updateOverlayText();
+        if (label !== lastPlace) {
+          fadeOutThenUpdatePlace(label);
+        } else {
+          lastPlace = label;
+          updateOverlayText();
+        }
       } catch (e) {
         if (!lastPlace) lastPlace = "Unknown Location";
         updateOverlayText();
       }
+    }
+
+    function fadeOutThenUpdatePlace(newPlace) {
+      overlayEl.style.opacity = 0;
+
+      setTimeout(() => {
+        lastPlace = newPlace;
+        updateOverlayText();
+        overlayEl.style.opacity = 1;
+      }, 350);
     }
 
     // ====== WEATHER ======
@@ -182,7 +198,12 @@
       }
 
       let placeStr = lastPlace || "Locating...";
-      overlayEl.textContent = `${timeStr} | ${tempStr} | ${placeStr}`;
+      const newText = `${timeStr} | ${tempStr} | ${placeStr}`;
+
+      if (newText !== lastRenderedText) {
+        overlayEl.textContent = newText;
+        lastRenderedText = newText;
+      }
     }
 
     // ====== INIT ======
