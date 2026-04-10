@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>IRL HUD</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  #container {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 14px;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #battery {
+    font-weight: 600;
+  }
+
+  #audioBar {
+    width: 120px;
+    height: 3px; /* thin horizontal line */
+    background: rgba(255,255,255,0.25);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  #audioFill {
+    height: 100%;
+    width: 0%;
+    background: #4adeff;
+    transition: width 0.05s linear;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div id="battery">--%</div>
+  <div id="audioBar"><div id="audioFill"></div></div>
+</div>
+
+<script>
+/* -------------------------
+   Battery Percentage
+-------------------------- */
+function updateBattery() {
+  if (navigator.getBattery) {
+    navigator.getBattery().then(battery => {
+      function refresh() {
+        const pct = Math.round(battery.level * 100);
+        document.getElementById("battery").textContent = pct + "%";
+      }
+      refresh();
+      battery.addEventListener("levelchange", refresh);
+    });
+  } else {
+    document.getElementById("battery").textContent = "N/A";
+  }
+}
+updateBattery();
+
+/* -------------------------
+   Audio Level Meter
+-------------------------- */
+async function startAudioMeter() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+
+    analyser.fftSize = 256;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    source.connect(analyser);
+
+    function animate() {
+      analyser.getByteTimeDomainData(dataArray);
+
+      // Calculate rough volume
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = (dataArray[i] - 128) / 128;
+        sum += v * v;
+      }
+      const volume = Math.sqrt(sum / dataArray.length);
+
+      // Map volume to bar width (0–100%)
+      const pct = Math.min(100, Math.max(0, volume * 250));
+      document.getElementById("audioFill").style.width = pct + "%";
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  } catch (err) {
+    console.log("Audio meter error:", err);
+  }
+}
+startAudioMeter();
+</script>
+
+</body>
+</html>
